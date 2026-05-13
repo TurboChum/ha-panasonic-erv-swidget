@@ -1,12 +1,12 @@
 """Panasonic ERV switch entities."""
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.switch import SwitchEntity
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_DEVICE_NAME, DATA_COORDINATOR, DOMAIN
+from .const import DATA_COORDINATOR, DOMAIN
+from .entity import PanasonicERVEntity
 
 
 async def async_setup_entry(
@@ -14,73 +14,64 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up switch entities for Panasonic ERV."""
     coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
-    device_name = entry.data[CONF_DEVICE_NAME]
-
     async_add_entities(
         [
-            PanasonicERVPowerSwitch(coordinator, device_name),
-            PanasonicERVBoostSwitch(coordinator, device_name),
-        ],
-        True,
+            PanasonicERVPowerSwitch(coordinator),
+            PanasonicERVBoostSwitch(coordinator),
+        ]
     )
 
 
-class PanasonicERVPowerSwitch(CoordinatorEntity, SwitchEntity):
+class PanasonicERVPowerSwitch(PanasonicERVEntity, SwitchEntity):
     """Power switch for the Panasonic ERV."""
 
-    def __init__(self, coordinator, name: str) -> None:
-        super().__init__(coordinator)
-        self._name = name
+    _attr_name = "Power"
+    _attr_icon = "mdi:power"
 
-    @property
-    def unique_id(self) -> str:
-        return f"{self._name}_power".lower().replace(" ", "_")
-
-    @property
-    def name(self) -> str:
-        return f"{self._name} Power"
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "power")
 
     @property
     def is_on(self) -> bool:
         return (
-            self.coordinator.data["host"]["components"]["0"]["toggle"]["state"]
-            == "on"
+            self.coordinator.data["host"]["components"]["0"]["toggle"]["state"] == "on"
         )
 
     async def async_turn_on(self, **kwargs) -> None:
-        await self.coordinator.api_client.async_set_power(True)
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_send_command(
+            lambda: self.coordinator.api_client.async_set_power(True)
+        )
 
     async def async_turn_off(self, **kwargs) -> None:
-        await self.coordinator.api_client.async_set_power(False)
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_send_command(
+            lambda: self.coordinator.api_client.async_set_power(False)
+        )
 
 
-class PanasonicERVBoostSwitch(CoordinatorEntity, SwitchEntity):
+class PanasonicERVBoostSwitch(PanasonicERVEntity, SwitchEntity):
     """Boost mode switch for the Panasonic ERV."""
 
-    def __init__(self, coordinator, name: str) -> None:
-        super().__init__(coordinator)
-        self._name = name
+    _attr_name = "Boost"
+    _attr_icon = "mdi:fan-plus"
 
-    @property
-    def unique_id(self) -> str:
-        return f"{self._name}_boost".lower().replace(" ", "_")
-
-    @property
-    def name(self) -> str:
-        return f"{self._name} Boost"
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "boost")
 
     @property
     def is_on(self) -> bool:
-        return self.coordinator.data["host"]["components"]["0"]["boost"]["mode"] == "on"
+        return (
+            self.coordinator.data["host"]["components"]["0"]["boost"]["mode"] == "on"
+        )
 
     async def async_turn_on(self, **kwargs) -> None:
-        await self.coordinator.api_client.async_set_boost(True)
-        await self.coordinator.async_request_refresh()
+        self.coordinator.desired_boost = True
+        await self.coordinator.async_send_command(
+            lambda: self.coordinator.api_client.async_set_boost(True)
+        )
 
     async def async_turn_off(self, **kwargs) -> None:
-        await self.coordinator.api_client.async_set_boost(False)
-        await self.coordinator.async_request_refresh()
+        self.coordinator.desired_boost = False
+        await self.coordinator.async_send_command(
+            lambda: self.coordinator.api_client.async_set_boost(False)
+        )

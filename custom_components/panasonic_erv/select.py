@@ -1,12 +1,12 @@
 """Panasonic ERV select entities."""
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.select import SelectEntity
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_DEVICE_NAME, DATA_COORDINATOR, DOMAIN
+from .const import DATA_COORDINATOR, DOMAIN
+from .entity import PanasonicERVEntity
 
 
 async def async_setup_entry(
@@ -14,72 +14,89 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up select entities for Panasonic ERV."""
     coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
-    device_name = entry.data[CONF_DEVICE_NAME]
-
     async_add_entities(
         [
-            PanasonicERVModeSelect(coordinator, device_name),
-            PanasonicERVSpeedSelect(coordinator, device_name),
-        ],
-        True,
+            PanasonicERVModeSelect(coordinator),
+            PanasonicERVSpeedSelect(coordinator),
+            PanasonicERVBalancingSelect(coordinator),
+        ]
     )
 
 
-class PanasonicERVModeSelect(CoordinatorEntity, SelectEntity):
+class PanasonicERVModeSelect(PanasonicERVEntity, SelectEntity):
     """Select entity for ERV ventilation mode."""
 
-    def __init__(self, coordinator, name: str) -> None:
-        super().__init__(coordinator)
-        self._name = name
-        self._options = ["heatExchange", "supply", "exhaust", "recirculation"]
+    _attr_name = "Mode"
+    _attr_icon = "mdi:cog-refresh"
+    _attr_options = ["heatExchange", "supply", "exhaust", "recirculation"]
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "mode")
 
     @property
-    def unique_id(self) -> str:
-        return f"{self._name}_mode".lower().replace(" ", "_")
-
-    @property
-    def name(self) -> str:
-        return f"{self._name} Mode"
-
-    @property
-    def current_option(self) -> str:
-        return self.coordinator.data["host"]["components"]["0"]["mode"]
-
-    @property
-    def options(self) -> list[str]:
-        return self._options
+    def current_option(self) -> str | None:
+        return self.coordinator.data["host"]["components"]["0"].get("mode")
 
     async def async_select_option(self, option: str) -> None:
-        await self.coordinator.api_client.async_set_mode(option)
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_send_command(
+            lambda: self.coordinator.api_client.async_set_mode(option)
+        )
 
 
-class PanasonicERVSpeedSelect(CoordinatorEntity, SelectEntity):
-    """Select entity for ERV speed."""
+class PanasonicERVSpeedSelect(PanasonicERVEntity, SelectEntity):
+    """Select entity for ERV fan speed."""
 
-    def __init__(self, coordinator, name: str) -> None:
-        super().__init__(coordinator)
-        self._name = name
-        self._options = ["low", "high"]
+    _attr_name = "Speed"
+    _attr_icon = "mdi:speedometer"
+    _attr_options = ["low", "high"]
 
-    @property
-    def unique_id(self) -> str:
-        return f"{self._name}_speed".lower().replace(" ", "_")
-
-    @property
-    def name(self) -> str:
-        return f"{self._name} Speed"
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "speed")
 
     @property
-    def current_option(self) -> str:
-        return self.coordinator.data["host"]["components"]["0"]["speed"]
-
-    @property
-    def options(self) -> list[str]:
-        return self._options
+    def current_option(self) -> str | None:
+        return self.coordinator.data["host"]["components"]["0"].get("speed")
 
     async def async_select_option(self, option: str) -> None:
-        await self.coordinator.api_client.async_set_speed(option)
-        await self.coordinator.async_request_refresh()
+        self.coordinator.desired_speed = option
+        await self.coordinator.async_send_command(
+            lambda: self.coordinator.api_client.async_set_speed(option)
+        )
+
+
+class PanasonicERVBalancingSelect(PanasonicERVEntity, SelectEntity):
+    """Select entity for auto-balancing supply/exhaust CFM.
+
+    0 = manual (no auto-balance)
+    1 = auto (if supply or exhaust is restricted, proportionally slow the other side)
+    """
+
+    _attr_name = "Balancing"
+    _attr_icon = "mdi:scale-balance"
+    _attr_options = ["manual", "auto"]
+    _attr_entity_registry_enabled_default = False
+
+    _OPTION_TO_INT = {"manual": 0, "auto": 1}
+    _INT_TO_OPTION = {0: "manual", 1: "auto"}
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "balancing")
+
+    @property
+    def available(self) -> bool:
+        return self.coordinator.last_update_success and bool(self.coordinator.device_config)
+
+    @property
+    def current_option(self) -> str | None:
+        try:
+            value = self.coordinator.device_config["host"]["components"]["0"]["balancing"]
+            return self._INT_TO_OPTION.get(value)
+        except (KeyError, TypeError):
+            return None
+
+    async def async_select_option(self, option: str) -> None:
+        value = self._OPTION_TO_INT[option]
+        await self.coordinator.async_send_command(
+            lambda: self.coordinator.api_client.async_set_device_config("balancing", value)
+        )

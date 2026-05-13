@@ -1,0 +1,47 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Panasonic ERV",
+        "data": {
+          "device_name": "Device Name",
+          "device_url": "Device URL"
+        },
+        "data_description": {
+          "device_name": "Friendly name used for the device and entity display names in Home Assistant.",
+          "device_url": "Local URL or IP address of the ERV (e.g. http://192.168.1.100)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the device. Check the URL and ensure the ERV is online.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This device is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Panasonic ERV Options",
+        "data": {
+          "poll_interval": "Poll Interval (seconds)",
+          "retry_count": "Retry Count",
+          "verify_delay": "Command Verify Delay (seconds)",
+          "boost_recovery": "Auto-recover Desired State",
+          "cfm_alert_threshold": "CFM Alert Threshold (CFM)",
+          "cfm_alert_duration": "CFM Alert Duration (seconds)"
+        },
+        "data_description": {
+          "poll_interval": "How often to poll the device for state updates.",
+          "retry_count": "Number of times to retry a failed read or write before reporting an error.",
+          "verify_delay": "Seconds to wait after sending a command before re-polling to verify it took effect.",
+          "boost_recovery": "Automatically resend boost and speed commands if the device state drifts from what Home Assistant last set (e.g. boost expiry after ~1 hour, or an unexpected power cycle).",
+          "cfm_alert_threshold": "How far the measured CFM must deviate from the configured target before the mismatch timer starts (5–30 CFM). Recommended: 10.",
+          "cfm_alert_duration": "How long the deviation must persist before the mismatch sensor fires (30–300 seconds). Allows the ERV time to recover from transient upsets before alarming. Recommended: 60."
+        }
+      }
+    }
+  }
+}

@@ -1,31 +1,44 @@
 # Panasonic ERV Home Assistant Integration
 
-This repository is a custom Home Assistant integration for Panasonic ERV devices using the Swidget local API.
+A custom Home Assistant integration for Panasonic ERV devices using the Swidget local API. Installable via HACS as a custom repository.
 
-## Goals
+## Features
 
-- Provide a HACS-friendly custom integration.
-- Map Swidget `/api/v1/state` to Home Assistant runtime entities.
-- Use `/api/v1/command` for writes and `/api/v1/device_config` for configuration.
-- Implement polling, command verification, retries, and boost recovery.
-- Allow a configurable device name for Home Assistant devices and entities.
+- **Controls**: power switch, ventilation mode (Heat Exchange / Supply / Exhaust / Recirculation), fan speed (Low / High), boost mode
+- **Sensors**: status, indoor/outdoor temperature and humidity, supply/exhaust CFM, power usage, filter cleaning/replacement alerts
+- **CFM mismatch alerts**: binary sensors that fire when measured CFM deviates from the configured target for the device's current speed — configurable threshold and duration
+- **Device config entities**: number entities for CFM limits, runtime, humidity/temperature thresholds, and log rate (disabled by default; enable the ones you need)
+- **Balancing**: select entity to enable/disable automatic supply/exhaust balancing
+- **Polling with retry**: configurable poll interval, read/write retry count, and command verification delay
+- **Desired-state recovery**: if boost or speed drifts from what HA last set, the integration automatically resends the command
 
-## Current status
+## Installation
 
-- `Objectives and definitions.md` contains the feature and design spec.
-- Initial scaffold for `custom_components/panasonic_erv` is included.
+1. In HACS, add this repository as a custom integration repository
+2. Install "Panasonic ERV"
+3. Restart Home Assistant
+4. Go to **Settings → Devices & Services → Add Integration** and search for "Panasonic ERV"
+5. Enter a device name and the local URL or IP address of the ERV (e.g. `http://192.168.1.100`)
 
-## Development branch
+## Configuration
 
-This repository is currently being developed on the `Dev` branch. The `Dev` branch is for active work, experimentation, and incremental commits. When the integration is ready for wider testing or release, we can merge into a stable branch.
+All settings are available after setup via **Settings → Devices & Services → Panasonic ERV → Configure**:
 
-## Next steps
+| Option | Default | Description |
+|---|---|---|
+| Poll Interval | 60 s | How often to fetch device state |
+| Retry Count | 3 | Read/write retries before reporting an error |
+| Verify Delay | 2 s | Seconds to wait after a command before re-polling to confirm |
+| Auto-recover Desired State | On | Resend boost/speed commands if the device state drifts |
+| CFM Alert Threshold | 10 CFM | Deviation from target before the mismatch timer starts |
+| CFM Alert Duration | 60 s | How long the deviation must persist before the sensor fires |
 
-1. Implement the integration data coordinator and entity classes.
-2. Add a config flow that accepts device name and device URL.
-3. Add polling, retries, and validation behavior.
-4. Add optional configuration entities for rarely changed device settings.
+## Device config number entities
+
+The entities for CFM limits, runtime, thresholds, etc. are **disabled by default**. Enable only the ones relevant to your setup via the entity's settings in HA. These map directly to fields in `/api/v1/device_config`.
 
 ## Notes
 
-This repository is intended to remain private until the integration is ready for public release.
+- No authentication required — the integration communicates directly with the device on your local network
+- Tested against the Swidget-based Panasonic ERV (model `pesna_IB150`)
+- This repository is intended to remain private until the integration is ready for public release
