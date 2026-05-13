@@ -15,6 +15,10 @@ This repository is a custom Home Assistant integration for Panasonic ERV devices
 - `Objectives and definitions.md` contains the feature and design spec.
 - Initial scaffold for `custom_components/panasonic_erv` is included.
 
+## Development branch
+
+This repository is currently being developed on the `Dev` branch. The `Dev` branch is for active work, experimentation, and incremental commits. When the integration is ready for wider testing or release, we can merge into a stable branch.
+
 ## Next steps
 
 1. Implement the integration data coordinator and entity classes.
