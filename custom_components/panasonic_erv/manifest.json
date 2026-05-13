@@ -1,0 +1,11 @@
+{
+  "domain": "panasonic_erv",
+  "name": "Panasonic ERV",
+  "version": "0.0.1",
+  "documentation": "https://github.com/youruser/your-repo-name",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": [],
+  "config_flow": true,
+  "iot_class": "local_polling"
+}

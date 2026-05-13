@@ -1,0 +1,11 @@
+DOMAIN = "panasonic_erv"
+DEFAULT_NAME = "Panasonic ERV"
+DEFAULT_POLL_INTERVAL = 60
+DEFAULT_RETRY_COUNT = 3
+DEFAULT_VERIFY_DELAY = 2
+CONF_DEVICE_URL = "device_url"
+CONF_DEVICE_NAME = "device_name"
+CONF_POLL_INTERVAL = "poll_interval"
+CONF_RETRY_COUNT = "retry_count"
+CONF_VERIFY_DELAY = "verify_delay"
+CONF_BOOST_RECOVERY = "boost_recovery"
