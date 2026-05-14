@@ -1,4 +1,23 @@
-"""Panasonic ERV number entities for device configuration."""
+"""Number entities for Panasonic ERV device configuration.
+
+These entities expose the numeric settings stored in /api/v1/device_config —
+things like CFM limits for each speed, runtime duration, and humidity/temperature
+thresholds.  They are backed by coordinator.device_config (fetched alongside
+the runtime state each poll cycle) and write through coordinator.async_send_command
+via async_set_device_config.
+
+All entities are disabled by default.  This is intentional: these are rarely
+changed settings that most users will never touch.  Enabling individual entities
+in the HA UI makes them visible and interactive without cluttering the default
+device card with 14 extra controls.
+
+Enabling an entity immediately shows the current value from device_config.
+Nothing is sent to the device until you explicitly change the value.
+
+Note: The meanings of some fields (runtime, defaultTimer) are not fully
+confirmed from device experimentation.  Use caution when changing them until
+their behaviour is better understood.
+"""
 
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
@@ -9,7 +28,14 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DATA_COORDINATOR, DOMAIN
 from .entity import PanasonicERVEntity
 
-# (suffix, name, config_key, min_val, max_val, step, unit, icon, mode)
+# Each entry describes one number entity:
+#   (suffix, display_name, device_config_key, min, max, step, unit, icon, mode)
+#
+# device_config_key is the exact key name in the host.components.0 object
+# of the /api/v1/device_config response.
+#
+# step=1 causes the value to be written as an integer rather than a float,
+# matching the integer format the device expects for these fields.
 _NUMBER_DESCRIPTIONS = [
     (
         "cfg_low_sa",
@@ -67,7 +93,7 @@ _NUMBER_DESCRIPTIONS = [
     ),
     (
         "cfg_runtime",
-        "Runtime",
+        "Runtime",          # exact meaning not yet confirmed from device testing
         "runtime",
         0, 480, 1,
         UnitOfTime.MINUTES,
@@ -103,7 +129,7 @@ _NUMBER_DESCRIPTIONS = [
     ),
     (
         "cfg_supply_limit_low_temp",
-        "Supply Limit Low Temp",
+        "Supply Limit Low Temp",    # 0 or 1 flag; exact behaviour not yet confirmed
         "supplyLimitLowTemp",
         0, 1, 1,
         None,
@@ -112,7 +138,7 @@ _NUMBER_DESCRIPTIONS = [
     ),
     (
         "cfg_supply_limit_high_hum",
-        "Supply Limit High Humidity",
+        "Supply Limit High Humidity",  # 0 or 1 flag; exact behaviour not yet confirmed
         "supplyLimitHighHum",
         0, 1, 1,
         None,
@@ -145,6 +171,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
+    """Create one number entity per row in _NUMBER_DESCRIPTIONS."""
     coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
     async_add_entities(
         [
@@ -159,7 +186,7 @@ async def async_setup_entry(
 
 
 class PanasonicERVNumber(PanasonicERVEntity, NumberEntity):
-    """A number entity backed by a device_config field."""
+    """A number entity backed by a single field in /api/v1/device_config."""
 
     def __init__(
         self,
@@ -176,17 +203,19 @@ class PanasonicERVNumber(PanasonicERVEntity, NumberEntity):
     ) -> None:
         super().__init__(coordinator, suffix)
         self._attr_name = name
-        self._config_key = config_key
+        self._config_key = config_key  # key in host.components.0 of device_config
         self._attr_native_min_value = min_val
         self._attr_native_max_value = max_val
         self._attr_native_step = step
         self._attr_native_unit_of_measurement = unit
         self._attr_icon = icon
         self._attr_mode = mode
+        # Disabled by default — enable individually via the HA entity settings UI.
         self._attr_entity_registry_enabled_default = False
 
     @property
     def native_value(self) -> float | None:
+        """Read the current value from the coordinator's cached device_config."""
         try:
             return self.coordinator.device_config["host"]["components"]["0"][
                 self._config_key
@@ -195,6 +224,11 @@ class PanasonicERVNumber(PanasonicERVEntity, NumberEntity):
             return None
 
     async def async_set_native_value(self, value: float) -> None:
+        """Write the new value to the device via device_config.
+
+        The device expects integer values for all fields with step=1, so we
+        cast to int before sending to avoid sending "65.0" instead of "65".
+        """
         int_value = int(value) if self._attr_native_step == 1 else value
         await self.coordinator.async_send_command(
             lambda: self.coordinator.api_client.async_set_device_config(

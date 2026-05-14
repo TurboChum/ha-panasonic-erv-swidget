@@ -1,4 +1,18 @@
-"""Panasonic ERV sensor entities."""
+"""Sensor entities for the Panasonic ERV integration.
+
+All sensor values come from the coordinator's runtime state data
+(coordinator.data), which is refreshed every poll cycle from /api/v1/state.
+
+Rather than writing a separate class for each sensor, a single generic
+PanasonicERVSensor class accepts a key_path (list of dict keys to traverse)
+and reads the value from the nested state JSON.  All sensors are declared in
+the _SENSOR_DESCRIPTIONS table at the top of this file, which keeps the setup
+function short and makes it easy to add new sensors later.
+
+SensorDeviceClass and SensorStateClass tell HA what kind of data the sensor
+represents.  This enables automatic unit conversion, correct icons, and
+inclusion in long-term statistics (energy dashboard, history graphs).
+"""
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -17,7 +31,14 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import CFM_UNKNOWN_SENTINEL, DATA_COORDINATOR, DOMAIN
 from .entity import PanasonicERVEntity
 
-# (suffix, name, key_path, unit, device_class, state_class, icon)
+# Each entry is a tuple of:
+#   (suffix, display_name, key_path, unit, device_class, state_class, icon)
+#
+# key_path is the list of keys to traverse in coordinator.data to reach the
+# value, e.g. ["host", "components", "0", "indoors", "temperature"].
+#
+# device_class=None means HA uses no special handling (plain text/number).
+# icon=None means HA picks the icon automatically based on device_class.
 _SENSOR_DESCRIPTIONS = [
     (
         "status",
@@ -35,7 +56,7 @@ _SENSOR_DESCRIPTIONS = [
         UnitOfTemperature.CELSIUS,
         SensorDeviceClass.TEMPERATURE,
         SensorStateClass.MEASUREMENT,
-        None,
+        None,  # HA provides a thermometer icon automatically for TEMPERATURE
     ),
     (
         "indoor_humidity",
@@ -117,6 +138,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
+    """Create one sensor entity per row in _SENSOR_DESCRIPTIONS."""
     coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
     async_add_entities(
         [
@@ -127,7 +149,12 @@ async def async_setup_entry(
 
 
 class PanasonicERVSensor(PanasonicERVEntity, SensorEntity):
-    """Generic ERV sensor entity."""
+    """Generic read-only sensor that traverses a key path in coordinator.data.
+
+    The key_path list is walked one key at a time.  If any key is missing or
+    the data is not a dict at that point, the sensor returns None (shown as
+    "unavailable" in HA) rather than raising an error.
+    """
 
     def __init__(
         self,
@@ -151,6 +178,15 @@ class PanasonicERVSensor(PanasonicERVEntity, SensorEntity):
 
     @property
     def native_value(self):
+        """Walk the key_path and return the value, or None if not found.
+
+        Special cases:
+        - If the final value is a dict (e.g. the error field when there are
+          active errors), convert it to a string so HA can display it.
+        - If the unit is CFM and the value is 255, return None.  The device
+          reports 255 as a sentinel meaning "not running / measurement
+          unavailable", not an actual airflow reading.
+        """
         data = self.coordinator.data
         for key in self._key_path:
             if not isinstance(data, dict):
@@ -158,7 +194,7 @@ class PanasonicERVSensor(PanasonicERVEntity, SensorEntity):
             data = data.get(key)
         if isinstance(data, dict):
             return str(data) if data else None
-        # Device reports 255 as a sentinel for "unknown / not running" on CFM fields
+        # Treat the CFM sentinel as an unknown value rather than a real reading
         if self._attr_native_unit_of_measurement == "CFM" and data == CFM_UNKNOWN_SENTINEL:
             return None
         return data
