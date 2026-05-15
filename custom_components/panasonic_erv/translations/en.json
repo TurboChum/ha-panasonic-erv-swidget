@@ -34,12 +34,12 @@
           "cfm_alert_duration": "CFM Alert Duration (seconds)"
         },
         "data_description": {
-          "poll_interval": "How often to poll the device for state updates.",
-          "retry_count": "Number of times to retry a failed read or write before reporting an error.",
-          "verify_delay": "Seconds to wait after sending a command before re-polling to verify it took effect.",
+          "poll_interval": "How often (in seconds) to fetch the device state. Range: 10–3600. Recommended: 60.",
+          "retry_count": "How many times to retry a failed read or write before reporting an error. Range: 1–10. Recommended: 3.",
+          "verify_delay": "Seconds to wait after sending a command before re-polling to confirm it took effect. Range: 1–30. Recommended: 2.",
           "boost_recovery": "Automatically resend boost and speed commands if the device state drifts from what Home Assistant last set (e.g. boost expiry after ~1 hour, or an unexpected power cycle).",
-          "cfm_alert_threshold": "How far the measured CFM must deviate from the configured target before the mismatch timer starts (5–30 CFM). Recommended: 10.",
-          "cfm_alert_duration": "How long the deviation must persist before the mismatch sensor fires (30–300 seconds). Allows the ERV time to recover from transient upsets before alarming. Recommended: 60."
+          "cfm_alert_threshold": "How far the measured CFM must deviate from the configured target before the mismatch timer starts. Range: 5–30 CFM. Recommended: 10.",
+          "cfm_alert_duration": "How long the CFM deviation must persist before the mismatch sensor fires. Allows the ERV time to recover from transient upsets before alarming. Range: 30–300 seconds. Recommended: 60."
         }
       }
     }

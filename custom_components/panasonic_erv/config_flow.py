@@ -18,7 +18,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers import aiohttp_client
+from homeassistant.helpers import aiohttp_client, selector
 
 from .api import PanasonicERVApi, PanasonicERVApiError
 from .const import (
@@ -109,9 +109,11 @@ class PanasonicERVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Tell HA that this integration supports an options flow.
 
         HA calls this to get the options flow handler when the user clicks
-        "Configure" on the integration card.
+        "Configure" on the integration card.  In modern HA, config_entry is
+        injected onto the flow object after creation as a read-only property,
+        so we do not pass it to the constructor.
         """
-        return PanasonicERVOptionsFlow(config_entry)
+        return PanasonicERVOptionsFlow()
 
 
 class PanasonicERVOptionsFlow(config_entries.OptionsFlow):
@@ -119,10 +121,10 @@ class PanasonicERVOptionsFlow(config_entries.OptionsFlow):
 
     Changes saved here are stored in entry.options and trigger an entry
     reload so the coordinator picks up the new values immediately.
-    """
 
-    def __init__(self, config_entry) -> None:
-        self.config_entry = config_entry
+    Note: self.config_entry is provided automatically by HA's options flow
+    manager as a read-only property — do not set it in __init__.
+    """
 
     async def async_step_init(self, user_input=None) -> FlowResult:
         """Show the options form, pre-filled with current values."""
@@ -139,27 +141,52 @@ class PanasonicERVOptionsFlow(config_entries.OptionsFlow):
                     vol.Required(
                         CONF_POLL_INTERVAL,
                         default=options.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
-                    ): vol.All(int, vol.Range(min=10, max=3600)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=10, max=3600, step=1,
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
                     vol.Required(
                         CONF_RETRY_COUNT,
                         default=options.get(CONF_RETRY_COUNT, DEFAULT_RETRY_COUNT),
-                    ): vol.All(int, vol.Range(min=1, max=10)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1, max=10, step=1,
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
                     vol.Required(
                         CONF_VERIFY_DELAY,
                         default=options.get(CONF_VERIFY_DELAY, DEFAULT_VERIFY_DELAY),
-                    ): vol.All(int, vol.Range(min=1, max=30)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1, max=30, step=1,
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
                     vol.Required(
                         CONF_BOOST_RECOVERY,
                         default=options.get(CONF_BOOST_RECOVERY, DEFAULT_BOOST_RECOVERY),
-                    ): bool,
+                    ): selector.BooleanSelector(),
                     vol.Required(
                         CONF_CFM_ALERT_THRESHOLD,
                         default=options.get(CONF_CFM_ALERT_THRESHOLD, DEFAULT_CFM_ALERT_THRESHOLD),
-                    ): vol.All(int, vol.Range(min=5, max=30)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=5, max=30, step=1,
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
                     vol.Required(
                         CONF_CFM_ALERT_DURATION,
                         default=options.get(CONF_CFM_ALERT_DURATION, DEFAULT_CFM_ALERT_DURATION),
-                    ): vol.All(int, vol.Range(min=30, max=300)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=30, max=300, step=1,
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
                 }
             ),
         )
