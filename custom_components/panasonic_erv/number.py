@@ -34,6 +34,7 @@ from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE, UnitOfTemperature, UnitOfTime
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DATA_COORDINATOR, DOMAIN
@@ -306,6 +307,27 @@ class PanasonicERVCFMNumber(PanasonicERVEntity, NumberEntity):
             ]
         except (KeyError, TypeError):
             return None
+
+    async def async_set_value(self, value: float) -> None:
+        """Validate the new value and raise a descriptive error for tier-gap violations.
+
+        HA's default error just says "out of range X–Y".  When the ceiling comes
+        from a tier-gap constraint (not the device physical limit), we surface a
+        clearer message so the user knows which tier they need to adjust first.
+        For all other out-of-range cases (below minimum, exceeds device max) we
+        fall through to HA's standard validation via super().
+        """
+        tier_above = _TIER_ABOVE[self._tier]
+        if tier_above is not None and value > self.native_max_value:
+            direction_label = "Supply" if self._direction == "supply" else "Exhaust"
+            tier_label = tier_above.capitalize()
+            above_cfm = int(self.native_max_value) + 10
+            raise ServiceValidationError(
+                f"Must be at least 10 CFM below {tier_label} Speed {direction_label} CFM — "
+                f"{tier_label} is currently {above_cfm} CFM, so the maximum here is "
+                f"{int(self.native_max_value)} CFM."
+            )
+        await super().async_set_value(value)
 
     async def async_set_native_value(self, value: float) -> None:
         """Write the new CFM value to the device."""
