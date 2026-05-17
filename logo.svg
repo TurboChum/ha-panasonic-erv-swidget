@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+
+    <!-- Arrowhead markers — orient="auto" rotates them to match path direction -->
+    <marker id="ar-o" markerWidth="16" markerHeight="11" refX="16" refY="5.5"
+            orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L16,5.5 L0,11 Z" fill="#e07018"/>
+    </marker>
+    <marker id="ar-g" markerWidth="16" markerHeight="11" refX="16" refY="5.5"
+            orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L16,5.5 L0,11 Z" fill="#6a7888"/>
+    </marker>
+
+  </defs>
+
+  <!-- White background with subtle rounding (works as a standalone icon) -->
+  <rect width="512" height="512" rx="44" fill="white"/>
+
+  <!-- ── ERV UNIT BOX ──────────────────────────────────────────── -->
+  <rect x="48" y="137" width="416" height="238" rx="6"
+        fill="#f3f5f7" stroke="#484848" stroke-width="6"/>
+
+  <!-- Duct port flanges — protrude from both sides of the box.
+       Two per side: upper (fresh/supply stream) and lower (stale/exhaust stream). -->
+  <!-- Left upper -->
+  <rect x="22" y="177" width="28" height="42" rx="3"
+        fill="#f3f5f7" stroke="#484848" stroke-width="5"/>
+  <!-- Left lower -->
+  <rect x="22" y="293" width="28" height="42" rx="3"
+        fill="#f3f5f7" stroke="#484848" stroke-width="5"/>
+  <!-- Right upper -->
+  <rect x="462" y="177" width="28" height="42" rx="3"
+        fill="#f3f5f7" stroke="#484848" stroke-width="5"/>
+  <!-- Right lower -->
+  <rect x="462" y="293" width="28" height="42" rx="3"
+        fill="#f3f5f7" stroke="#484848" stroke-width="5"/>
+
+  <!-- ── DIAMOND (heat exchanger core boundary) ──────────────── -->
+  <polygon points="256,150 356,256 256,362 156,256"
+           fill="none" stroke="#484848" stroke-width="4"/>
+
+  <!-- "ERV" label — sits in the upper-centre of the diamond,
+       above where the curves cross, just like the reference image. -->
+  <text x="256" y="230"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="32" font-weight="600" letter-spacing="4"
+        fill="#555555" text-anchor="middle">ERV</text>
+
+  <!-- ══════════════════════════════════════════════════════════
+       THE CROSSING S-CURVES
+       These represent the two airstreams passing through each other
+       inside the heat exchanger core — the defining visual of an ERV.
+
+       Orange = one airstream (enters upper-left, exits lower-right)
+       Gray   = other airstream (enters upper-right, exits lower-left)
+
+       Both bezier curves are symmetric and cross exactly at centre (256,256).
+       Control points are chosen so each curve is tangent-horizontal at its
+       endpoints (clean entry/exit into the duct flanges) and makes a smooth
+       S-shape through the core.
+       ══════════════════════════════════════════════════════════ -->
+
+  <!-- Gray curve drawn first so orange crosses "over" it at centre -->
+  <path d="M 476,198 C 306,198 206,314 36,314"
+        fill="none" stroke="#6a7888" stroke-width="9.5"
+        stroke-linecap="round" marker-end="url(#ar-g)"/>
+
+  <!-- Orange curve on top -->
+  <path d="M 36,198 C 206,198 306,314 476,314"
+        fill="none" stroke="#e07018" stroke-width="9.5"
+        stroke-linecap="round" marker-end="url(#ar-o)"/>
+
+  <!-- ── EXTERNAL FLOW ARROWS (outside the box) ──────────────── -->
+
+  <!-- Left upper: orange → entering (fresh air into ERV from this side) -->
+  <line x1="4"   y1="198" x2="20"  y2="198"
+        stroke="#e07018" stroke-width="9.5" stroke-linecap="round"
+        marker-end="url(#ar-o)"/>
+
+  <!-- Left lower: gray ← exiting (other stream exits here after exchange) -->
+  <line x1="38"  y1="314" x2="4"   y2="314"
+        stroke="#6a7888" stroke-width="9.5" stroke-linecap="round"
+        marker-end="url(#ar-g)"/>
+
+  <!-- Right upper: gray ← entering (other airstream enters from this side) -->
+  <line x1="508" y1="198" x2="492" y2="198"
+        stroke="#6a7888" stroke-width="9.5" stroke-linecap="round"
+        marker-end="url(#ar-g)"/>
+
+  <!-- Right lower: orange → exiting (first stream exits after exchange) -->
+  <line x1="474" y1="314" x2="508" y2="314"
+        stroke="#e07018" stroke-width="9.5" stroke-linecap="round"
+        marker-end="url(#ar-o)"/>
+
+</svg>
