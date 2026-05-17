@@ -9,10 +9,21 @@ via async_set_device_config.
 All entities are disabled by default.  This is intentional: these are rarely
 changed settings that most users will never touch.  Enabling individual entities
 in the HA UI makes them visible and interactive without cluttering the default
-device card with 14 extra controls.
+device card with extra controls.
 
 Enabling an entity immediately shows the current value from device_config.
 Nothing is sent to the device until you explicitly change the value.
+
+CFM entities (PanasonicERVCFMNumber) have dynamic min/max bounds:
+  - Minimum is always 30 CFM.
+  - Maximum is read live from the device's reported capability
+    (state["host"]["components"]["0"][direction]["allowed"][1]).
+    This differs between installations (100, 120, 150 CFM units, etc.)
+  - A 10 CFM gap is enforced between speed tiers in the same direction:
+      low max  = current high value  - 10
+      high max = current boost value - 10
+      boost max = device reported max
+    Supply and exhaust are evaluated independently.
 
 Note: The meanings of some fields (runtime, defaultTimer) are not fully
 confirmed from device experimentation.  Use caution when changing them until
@@ -28,69 +39,34 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DATA_COORDINATOR, DOMAIN
 from .entity import PanasonicERVEntity
 
-# Each entry describes one number entity:
-#   (suffix, display_name, device_config_key, min, max, step, unit, icon, mode)
-#
-# device_config_key is the exact key name in the host.components.0 object
-# of the /api/v1/device_config response.
-#
-# step=1 causes the value to be written as an integer rather than a float,
-# matching the integer format the device expects for these fields.
+_CFM_MIN = 30           # hard floor for all CFM settings
+_CFM_FALLBACK_MAX = 120 # used when the device hasn't reported its allowed range yet
+
+# For each tier, the name of the tier directly above it in the speed hierarchy.
+# None means boost — it has no tier above it; the device max is the only cap.
+_TIER_ABOVE = {"low": "high", "high": "boost", "boost": None}
+
+# Maps (direction, tier) → the device_config key holding that CFM target.
+# Used to look up the tier-above value when computing the dynamic max.
+_CFM_CONFIG_KEYS = {
+    "supply":  {"low": "lowSa",  "high": "highSa",  "boost": "boostSa"},
+    "exhaust": {"low": "lowEa",  "high": "highEa",  "boost": "boostEa"},
+}
+
+# CFM speed entities — dynamic max, enforced 10 CFM tier gap.
+# (suffix, display_name, config_key, direction, tier, icon)
+_CFM_NUMBER_DESCRIPTIONS = [
+    ("cfg_low_sa",   "Low Speed Supply CFM",   "lowSa",   "supply",  "low",   "mdi:arrow-up-bold-circle-outline"),
+    ("cfg_low_ea",   "Low Speed Exhaust CFM",  "lowEa",   "exhaust", "low",   "mdi:arrow-down-bold-circle-outline"),
+    ("cfg_high_sa",  "High Speed Supply CFM",  "highSa",  "supply",  "high",  "mdi:arrow-up-bold-circle-outline"),
+    ("cfg_high_ea",  "High Speed Exhaust CFM", "highEa",  "exhaust", "high",  "mdi:arrow-down-bold-circle-outline"),
+    ("cfg_boost_sa", "Boost Supply CFM",       "boostSa", "supply",  "boost", "mdi:arrow-up-bold-circle-outline"),
+    ("cfg_boost_ea", "Boost Exhaust CFM",      "boostEa", "exhaust", "boost", "mdi:arrow-down-bold-circle-outline"),
+]
+
+# Non-CFM numeric entities — fixed min/max, no dynamic constraints.
+# (suffix, display_name, device_config_key, min, max, step, unit, icon, mode)
 _NUMBER_DESCRIPTIONS = [
-    (
-        "cfg_low_sa",
-        "Low Speed Supply CFM",
-        "lowSa",
-        0, 120, 1,
-        "CFM",
-        "mdi:arrow-up-bold-circle-outline",
-        NumberMode.BOX,
-    ),
-    (
-        "cfg_low_ea",
-        "Low Speed Exhaust CFM",
-        "lowEa",
-        0, 120, 1,
-        "CFM",
-        "mdi:arrow-down-bold-circle-outline",
-        NumberMode.BOX,
-    ),
-    (
-        "cfg_high_sa",
-        "High Speed Supply CFM",
-        "highSa",
-        0, 120, 1,
-        "CFM",
-        "mdi:arrow-up-bold-circle-outline",
-        NumberMode.BOX,
-    ),
-    (
-        "cfg_high_ea",
-        "High Speed Exhaust CFM",
-        "highEa",
-        0, 120, 1,
-        "CFM",
-        "mdi:arrow-down-bold-circle-outline",
-        NumberMode.BOX,
-    ),
-    (
-        "cfg_boost_sa",
-        "Boost Supply CFM",
-        "boostSa",
-        0, 120, 1,
-        "CFM",
-        "mdi:arrow-up-bold-circle-outline",
-        NumberMode.BOX,
-    ),
-    (
-        "cfg_boost_ea",
-        "Boost Exhaust CFM",
-        "boostEa",
-        0, 120, 1,
-        "CFM",
-        "mdi:arrow-down-bold-circle-outline",
-        NumberMode.BOX,
-    ),
     (
         "cfg_runtime",
         "Runtime",          # exact meaning not yet confirmed from device testing
@@ -171,18 +147,21 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Create one number entity per row in _NUMBER_DESCRIPTIONS."""
+    """Create all number entities for this config entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
-    async_add_entities(
-        [
-            PanasonicERVNumber(
-                coordinator, suffix, name, config_key,
-                min_val, max_val, step, unit, icon, mode,
-            )
-            for suffix, name, config_key, min_val, max_val, step, unit, icon, mode
-            in _NUMBER_DESCRIPTIONS
-        ]
-    )
+    entities = [
+        PanasonicERVCFMNumber(coordinator, suffix, name, config_key, direction, tier, icon)
+        for suffix, name, config_key, direction, tier, icon in _CFM_NUMBER_DESCRIPTIONS
+    ]
+    entities += [
+        PanasonicERVNumber(
+            coordinator, suffix, name, config_key,
+            min_val, max_val, step, unit, icon, mode,
+        )
+        for suffix, name, config_key, min_val, max_val, step, unit, icon, mode
+        in _NUMBER_DESCRIPTIONS
+    ]
+    async_add_entities(entities)
 
 
 class PanasonicERVNumber(PanasonicERVEntity, NumberEntity):
@@ -233,5 +212,105 @@ class PanasonicERVNumber(PanasonicERVEntity, NumberEntity):
         await self.coordinator.async_send_command(
             lambda: self.coordinator.api_client.async_set_device_config(
                 self._config_key, int_value
+            )
+        )
+
+
+class PanasonicERVCFMNumber(PanasonicERVEntity, NumberEntity):
+    """CFM setting entity with dynamic bounds derived from device capability and tier order.
+
+    Maximum is recomputed each time HA reads the entity state:
+      boost → device-reported max (from state[direction]["allowed"][1])
+      high  → min(device_max, current boost value − 10)
+      low   → min(device_max, current high value  − 10)
+
+    Supply and exhaust are evaluated independently — supply low is capped against
+    supply high, not exhaust high.
+
+    If device_config hasn't loaded yet, or the tier-above value is missing,
+    the entity falls back to the device-reported max with no tier cap applied.
+    The result is always at least _CFM_MIN (30) so the range never inverts.
+    """
+
+    _attr_native_min_value = _CFM_MIN
+    _attr_native_step = 1
+    _attr_mode = NumberMode.BOX
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(
+        self,
+        coordinator,
+        suffix: str,
+        name: str,
+        config_key: str,
+        direction: str,
+        tier: str,
+        icon: str,
+    ) -> None:
+        super().__init__(coordinator, suffix)
+        self._attr_name = name
+        self._config_key = config_key
+        self._direction = direction  # "supply" or "exhaust"
+        self._tier = tier            # "low", "high", or "boost"
+        self._attr_icon = icon
+        self._attr_native_unit_of_measurement = "CFM"
+
+    def _device_max(self) -> int:
+        """Read the maximum CFM this installation supports from the live state.
+
+        The device reports its physical airflow ceiling as an "allowed" array
+        in the runtime state alongside the current CFM reading, e.g.:
+          {"cfm": 61, "allowed": [0, 120]}
+        This lets 100, 120, and 150 CFM units all use the same integration.
+        """
+        try:
+            allowed = self.coordinator.data["host"]["components"]["0"][self._direction]["allowed"]
+            return int(allowed[1])
+        except (KeyError, TypeError, IndexError):
+            return _CFM_FALLBACK_MAX
+
+    @property
+    def native_max_value(self) -> float:
+        """Compute the effective ceiling for this speed tier.
+
+        Overrides the base-class attribute so HA picks it up dynamically on
+        every state read rather than using the static value set at init time.
+        """
+        device_max = self._device_max()
+        tier_above = _TIER_ABOVE[self._tier]
+
+        if tier_above is None:
+            # Boost — only the physical device limit applies.
+            return float(device_max)
+
+        try:
+            above_key = _CFM_CONFIG_KEYS[self._direction][tier_above]
+            above_value = self.coordinator.device_config["host"]["components"]["0"][above_key]
+            if above_value is not None:
+                capped = int(above_value) - 10
+                # Clamp between _CFM_MIN and device_max so we never produce an
+                # inverted range if the tier-above value is unusually small.
+                return float(max(_CFM_MIN, min(device_max, capped)))
+        except (KeyError, TypeError):
+            pass
+
+        # device_config not yet loaded — fall back to device max without tier cap.
+        return float(device_max)
+
+    @property
+    def native_value(self) -> float | None:
+        """Read the current configured CFM from device_config."""
+        try:
+            return self.coordinator.device_config["host"]["components"]["0"][
+                self._config_key
+            ]
+        except (KeyError, TypeError):
+            return None
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Write the new CFM value to the device."""
+        await self.coordinator.async_send_command(
+            lambda: self.coordinator.api_client.async_set_device_config(
+                self._config_key, int(value)
             )
         )
