@@ -308,6 +308,33 @@ class PanasonicERVCFMNumber(PanasonicERVEntity, NumberEntity):
         except (KeyError, TypeError):
             return None
 
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Expose why the maximum is capped when a tier-gap constraint applies.
+
+        Shown in the entity info panel and developer tools so users understand
+        why the ceiling is lower than the device maximum.
+        Example: "Must be ≥ 10 CFM below High Speed Supply CFM (currently 65 CFM)"
+        """
+        tier_above = _TIER_ABOVE[self._tier]
+        if tier_above is None:
+            return {}
+        direction_label = "Supply" if self._direction == "supply" else "Exhaust"
+        tier_label = tier_above.capitalize()
+        try:
+            above_key = _CFM_CONFIG_KEYS[self._direction][tier_above]
+            above_value = int(
+                self.coordinator.device_config["host"]["components"]["0"][above_key]
+            )
+            return {
+                "max_limit": (
+                    f"Must be ≥ 10 CFM below {tier_label} Speed {direction_label} CFM "
+                    f"(currently {above_value} CFM) — max allowed: {int(self.native_max_value)} CFM"
+                )
+            }
+        except (KeyError, TypeError):
+            return {}
+
     async def async_set_value(self, value: float) -> None:
         """Validate the new value and raise a descriptive error for tier-gap violations.
 
