@@ -193,14 +193,16 @@ class PanasonicERVCFMMismatchSensor(PanasonicERVEntity, BinarySensorEntity):
     def _actual_cfm(self) -> int | None:
         """Read the current measured CFM from runtime state.
 
-        Returns None for the sentinel value 255, which the device reports when
-        the unit is off or the airflow measurement is not available.
+        Returns None for values that indicate the unit is not in a normal
+        running state, suppressing mismatch alerts:
+          - 255 (CFM_UNKNOWN_SENTINEL): unit off, recirc, exhaust-only, etc.
+          - 0: defrost or other transient state where airflow is intentionally stopped.
         """
         try:
             value = self.coordinator.data["host"]["components"]["0"][self._direction]["cfm"]
         except (KeyError, TypeError):
             return None
-        if value == CFM_UNKNOWN_SENTINEL:
+        if value == CFM_UNKNOWN_SENTINEL or value == 0:
             return None
         return value
 

@@ -50,6 +50,21 @@ class PanasonicERVEntity(CoordinatorEntity):
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{suffix}"
 
     @property
+    def _is_powered_on(self) -> bool:
+        """Return True if the ERV's power toggle is currently on.
+
+        Used by operational entities (boost, speed, mode) to mark themselves
+        unavailable while the device is off, preventing commands that would
+        inadvertently turn it back on.
+        """
+        try:
+            return (
+                self.coordinator.data["host"]["components"]["0"]["toggle"]["state"] == "on"
+            )
+        except (KeyError, TypeError):
+            return False
+
+    @property
     def device_info(self) -> DeviceInfo:
         """Return device metadata that HA uses to group entities on one card.
 

@@ -70,11 +70,20 @@ _CFM_NUMBER_DESCRIPTIONS = [
 _NUMBER_DESCRIPTIONS = [
     (
         "cfg_runtime",
-        "Runtime",          # exact meaning not yet confirmed from device testing
+        "Runtime",
         "runtime",
         0, 480, 1,
         UnitOfTime.MINUTES,
         "mdi:timer-outline",
+        NumberMode.BOX,
+    ),
+    (
+        "cfg_default_timer",
+        "Default Timer",
+        "defaultTimer",
+        0, 480, 1,
+        UnitOfTime.MINUTES,
+        "mdi:timer-settings-outline",
         NumberMode.BOX,
     ),
     (

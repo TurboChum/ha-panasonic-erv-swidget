@@ -53,6 +53,10 @@ class PanasonicERVModeSelect(PanasonicERVEntity, SelectEntity):
         super().__init__(coordinator, "mode")
 
     @property
+    def available(self) -> bool:
+        return self.coordinator.last_update_success and self._is_powered_on
+
+    @property
     def current_option(self) -> str | None:
         return self.coordinator.data["host"]["components"]["0"].get("mode")
 
@@ -77,6 +81,10 @@ class PanasonicERVSpeedSelect(PanasonicERVEntity, SelectEntity):
 
     def __init__(self, coordinator) -> None:
         super().__init__(coordinator, "speed")
+
+    @property
+    def available(self) -> bool:
+        return self.coordinator.last_update_success and self._is_powered_on
 
     @property
     def current_option(self) -> str | None:

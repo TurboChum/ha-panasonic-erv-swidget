@@ -1,12 +1,17 @@
 """Switch entities for the Panasonic ERV integration.
 
-Exposes two on/off controls:
-  - Power  — turns the ERV on or off (toggle.state)
-  - Boost  — enables high-flow boost mode for ~1 hour (boost.mode)
+Exposes three on/off controls:
+  - Power       — turns the ERV on or off (toggle.state)
+  - Boost       — enables high-flow boost mode for ~1 hour (boost.mode)
+  - Auto Runtime — enables the device's built-in auto-runtime scheduler
+                   (device_config autoRuntime: 0=off, 1=on)
 
-Both entities route their write commands through coordinator.async_send_command
-so that retry logic, the verification delay, and state recovery are handled
-consistently in one place.
+Power and Boost read from coordinator.data (runtime state).
+Auto Runtime reads from coordinator.device_config and is disabled by default —
+enable it via the entity settings UI if you use the auto-runtime feature.
+
+All write commands route through coordinator.async_send_command so retry logic,
+the verification delay, and state recovery are handled in one place.
 """
 
 from homeassistant.components.switch import SwitchEntity
@@ -29,6 +34,8 @@ async def async_setup_entry(
         [
             PanasonicERVPowerSwitch(coordinator),
             PanasonicERVBoostSwitch(coordinator),
+            PanasonicERVAutoRuntimeSwitch(coordinator),
+            PanasonicERVIntermittentModeSwitch(coordinator),
         ]
     )
 
@@ -76,6 +83,10 @@ class PanasonicERVBoostSwitch(PanasonicERVEntity, SwitchEntity):
         super().__init__(coordinator, "boost")
 
     @property
+    def available(self) -> bool:
+        return self.coordinator.last_update_success and self._is_powered_on
+
+    @property
     def is_on(self) -> bool:
         """Return True if boost mode is currently active."""
         return (
@@ -94,4 +105,84 @@ class PanasonicERVBoostSwitch(PanasonicERVEntity, SwitchEntity):
         self.coordinator.desired_boost = False
         await self.coordinator.async_send_command(
             lambda: self.coordinator.api_client.async_set_boost(False)
+        )
+
+
+class PanasonicERVAutoRuntimeSwitch(PanasonicERVEntity, SwitchEntity):
+    """Enables or disables the device's built-in auto-runtime scheduler.
+
+    Reads from coordinator.device_config (autoRuntime: 0=off, 1=on).
+    Disabled by default — enable via the HA entity settings UI if needed.
+    Unavailable until device_config has been fetched for the first time.
+    """
+
+    _attr_name = "Auto Runtime"
+    _attr_icon = "mdi:timer-play-outline"
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "auto_runtime")
+
+    @property
+    def available(self) -> bool:
+        return self.coordinator.last_update_success and bool(self.coordinator.device_config)
+
+    @property
+    def is_on(self) -> bool | None:
+        try:
+            value = self.coordinator.device_config["host"]["components"]["0"]["autoRuntime"]
+            return bool(value)
+        except (KeyError, TypeError):
+            return None
+
+    async def async_turn_on(self, **kwargs) -> None:
+        await self.coordinator.async_send_command(
+            lambda: self.coordinator.api_client.async_set_device_config("autoRuntime", 1)
+        )
+
+    async def async_turn_off(self, **kwargs) -> None:
+        await self.coordinator.async_send_command(
+            lambda: self.coordinator.api_client.async_set_device_config("autoRuntime", 0)
+        )
+
+
+class PanasonicERVIntermittentModeSwitch(PanasonicERVEntity, SwitchEntity):
+    """Enables or disables intermittent (duty-cycle) ventilation mode.
+
+    When on, the ERV runs for a set period (controlled by the Runtime number
+    entity) rather than continuously.  Works in conjunction with autoRuntime
+    and the runtime/defaultTimer device config values.
+
+    Reads from coordinator.device_config (intermittentMode: 0=off, 1=on).
+    Disabled by default — enable via the HA entity settings UI if needed.
+    Unavailable until device_config has been fetched for the first time.
+    """
+
+    _attr_name = "Intermittent Mode"
+    _attr_icon = "mdi:timer-pause-outline"
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "intermittent_mode")
+
+    @property
+    def available(self) -> bool:
+        return self.coordinator.last_update_success and bool(self.coordinator.device_config)
+
+    @property
+    def is_on(self) -> bool | None:
+        try:
+            value = self.coordinator.device_config["host"]["components"]["0"]["intermittentMode"]
+            return bool(value)
+        except (KeyError, TypeError):
+            return None
+
+    async def async_turn_on(self, **kwargs) -> None:
+        await self.coordinator.async_send_command(
+            lambda: self.coordinator.api_client.async_set_device_config("intermittentMode", 1)
+        )
+
+    async def async_turn_off(self, **kwargs) -> None:
+        await self.coordinator.async_send_command(
+            lambda: self.coordinator.api_client.async_set_device_config("intermittentMode", 0)
         )
