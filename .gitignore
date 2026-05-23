@@ -14,3 +14,7 @@ __pycache__/
 
 # Local settings
 .secrets.yaml
+
+# Internal development notes
+Objectives and definitions.md
+CLAUDE.md
