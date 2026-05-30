@@ -29,7 +29,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CFM_UNKNOWN_SENTINEL, DATA_COORDINATOR, DOMAIN
+from .const import CFM_UNKNOWN_SENTINEL, DATA_COORDINATOR, DOMAIN, TEMP_UNKNOWN_SENTINEL
 from .entity import PanasonicERVEntity
 
 # Each entry is a tuple of:
@@ -131,15 +131,16 @@ _SENSOR_DESCRIPTIONS = [
         SensorStateClass.MEASUREMENT,
         None,
     ),
-    (
-        "duty_cycle",
-        "Duty Cycle",
-        ["host", "components", "0", "dutyCycle", "minutes"],
-        UnitOfTime.MINUTES,
-        None,
-        SensorStateClass.MEASUREMENT,
-        "mdi:timer-outline",
-    ),
+    # Duty Cycle — not useful for Panasonic ERV; left here for reference
+    # (
+    #     "duty_cycle",
+    #     "Duty Cycle",
+    #     ["host", "components", "0", "dutyCycle", "minutes"],
+    #     UnitOfTime.MINUTES,
+    #     None,
+    #     SensorStateClass.MEASUREMENT,
+    #     "mdi:timer-outline",
+    # ),
     (
         "error",
         "Error",
@@ -213,8 +214,11 @@ class PanasonicERVSensor(PanasonicERVEntity, SensorEntity):
             data = data.get(key)
         if isinstance(data, dict):
             return str(data) if data else None
-        # 255 means the unit is off/unavailable (recirc, exhaust-only, etc.).
-        # Return -1 so graphs show a meaningful placeholder rather than a gap.
+        # CFM 255 means the unit is off/unavailable — return -1 to keep graphs continuous.
         if self._attr_native_unit_of_measurement == "CFM" and data == CFM_UNKNOWN_SENTINEL:
             return -1
+        # Temperature 53°C (127.4°F) is a device sentinel for "no valid reading".
+        # Return None so HA shows Unknown rather than a spurious spike.
+        if self._attr_device_class == SensorDeviceClass.TEMPERATURE and data == TEMP_UNKNOWN_SENTINEL:
+            return None
         return data

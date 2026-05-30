@@ -43,5 +43,10 @@ DEFAULT_CFM_ALERT_DURATION = 60    # seconds — long enough for the ERV to reco
 # measurement is not yet available.  Treat it as "unknown" rather than a real reading.
 CFM_UNKNOWN_SENTINEL = 255
 
+# The device reports 53°C (127.4°F) for temperature fields when idle or when the
+# sensor has no valid reading.  Return None so HA shows Unknown rather than a
+# spurious spike on the graph.
+TEMP_UNKNOWN_SENTINEL = 53
+
 # Key used to store the coordinator in hass.data[DOMAIN][entry_id]
 DATA_COORDINATOR = "coordinator"
