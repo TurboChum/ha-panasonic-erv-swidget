@@ -71,12 +71,12 @@ Sets the fan speed. Unavailable when the device is powered off. If desired-state
 | `High` | High fan speed |
 
 **Balancing** *(disabled by default)*
-Controls whether supply/exhaust airflow balance is set manually (via the CFM number entities) or managed automatically by the device.
+Controls whether supply/exhaust airflow balance is managed manually or automatically. In auto mode, if the airflow on either the supply or exhaust side is reduced (e.g. due to a restriction), the device automatically adjusts the other side to maintain the configured supply/exhaust ratio.
 
 | Value | Description |
 |---|---|
-| `Manual` | CFM targets are set by the user via the CFM number entities |
-| `Auto` | Device manages supply/exhaust balance automatically |
+| `Manual` | CFM targets are fixed at the configured values |
+| `Auto` | If one side is restricted, the other adjusts automatically to preserve the balance ratio |
 
 ---
 
