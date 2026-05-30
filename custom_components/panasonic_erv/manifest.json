@@ -1,7 +1,7 @@
 {
   "domain": "panasonic_erv",
   "name": "Panasonic ERV",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "documentation": "https://github.com/TurboChum/ha-panasonic-erv-swidget",
   "issue_tracker": "https://github.com/TurboChum/ha-panasonic-erv-swidget/issues",
   "requirements": [],
