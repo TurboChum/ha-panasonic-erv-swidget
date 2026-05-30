@@ -83,16 +83,16 @@ Controls whether supply/exhaust airflow balance is set manually (via the CFM num
 ### Sensors
 
 **Indoor Temperature**
-Current indoor temperature in °C as measured by the ERV. Shows **Unknown** when the device is idle and the sensor has no valid reading (the device reports 53°C / 127.4°F as a sentinel in this state).
+Current indoor temperature in °C as measured by the ERV. Remains valid during intermittent off periods (unit switches to recirculation, fan still running) but drops to **Unknown** during auto runtime off periods when the unit goes fully idle.
 
 **Outdoor Temperature**
-Current outdoor temperature in °C as measured by the ERV. Shows **Unknown** under the same idle conditions as Indoor Temperature.
+Current outdoor temperature in °C as measured by the ERV. Shows **Unknown** during intermittent off periods (no outdoor air exchange) and auto runtime off periods (unit fully idle). The device reports 53°C / 127.4°F as a sentinel, or omits the value entirely, in these states.
 
 **Indoor Humidity**
-Current indoor relative humidity (%).
+Current indoor relative humidity (%). Remains valid during intermittent off periods but drops to **Unknown** during auto runtime off periods when the unit goes fully idle.
 
 **Outdoor Humidity**
-Current outdoor relative humidity (%).
+Current outdoor relative humidity (%). Shows **Unknown** during intermittent off periods and auto runtime off periods — the device omits this value when there is no outdoor air exchange or when fully idle.
 
 **Supply CFM**
 Measured supply airflow in CFM. Reports `-1` when the unit is off or in a non-airflow state (recirc, exhaust-only, etc.) — this keeps graphs continuous rather than creating data gaps.
@@ -116,8 +116,8 @@ Current operating status of the device. Reports one of:
 |---|---|
 | `normal` | Running normally |
 | `boost` | Boost mode active |
-| `int` | Off — currently in the configured-off period of an intermittent runtime cycle |
-| `auto` | Off — currently in the off period of the auto runtime cycle (outdoor temp-based scheduling) |
+| `int` | Intermittent off period — unit switches to recirculation; indoor sensors remain valid, outdoor sensors drop |
+| `auto` | Auto runtime off period — unit goes fully idle based on outdoor temp conditions |
 
 **Error**
 Current error code or state reported by the device.
