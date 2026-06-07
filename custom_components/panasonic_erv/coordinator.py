@@ -105,6 +105,28 @@ class PanasonicERVDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception:  # noqa: BLE001
             pass
 
+        # --- Power-off gate ---
+        # While the unit is powered off we must not send ANY commands (boost or
+        # speed) — doing so would fight the user's power-off and could even
+        # re-power the device.  The two desired-state fields are handled
+        # differently here:
+        #   - Boost does NOT survive a power-off on this hardware, so we drop
+        #     the boost intent.  When the unit comes back on, boost recovery has
+        #     nothing to restore and won't silently re-enable it.
+        #   - Speed DOES survive (the user expects their last speed back on
+        #     power-up), so desired_speed is intentionally left untouched and
+        #     the speed recovery below will restore it once the unit is on again.
+        # Gating on the device's reported toggle.state (not on who turned it
+        # off) means this is correct whether HA or the unit itself powered down.
+        try:
+            powered_on = data["host"]["components"]["0"]["toggle"]["state"] == "on"
+        except (KeyError, TypeError):
+            powered_on = False
+
+        if not powered_on:
+            self.desired_boost = None
+            return data
+
         # --- Boost recovery ---
         # Boost mode has a hardware timer that resets it after roughly 1 hour.
         # If the user turned boost on in HA and the device has since turned it

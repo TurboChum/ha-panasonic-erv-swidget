@@ -51,10 +51,13 @@ class PanasonicERVPowerSwitch(PanasonicERVEntity, SwitchEntity):
 
     @property
     def is_on(self) -> bool:
-        """Return True if the ERV is currently running."""
-        return (
-            self.coordinator.data["host"]["components"]["0"]["toggle"]["state"] == "on"
-        )
+        """Return True if the ERV is currently running.
+
+        Reuses the base-class _is_powered_on helper, which guards against a
+        missing/partial payload (returns False instead of raising) so a malformed
+        poll response doesn't spam the log with KeyErrors.
+        """
+        return self._is_powered_on
 
     async def async_turn_on(self, **kwargs) -> None:
         await self.coordinator.async_send_command(
@@ -87,11 +90,18 @@ class PanasonicERVBoostSwitch(PanasonicERVEntity, SwitchEntity):
         return self.coordinator.last_update_success and self._is_powered_on
 
     @property
-    def is_on(self) -> bool:
-        """Return True if boost mode is currently active."""
-        return (
-            self.coordinator.data["host"]["components"]["0"]["boost"]["mode"] == "on"
-        )
+    def is_on(self) -> bool | None:
+        """Return True if boost mode is currently active.
+
+        Returns None (unknown) rather than raising if the payload is missing the
+        boost field, matching the defensive reads used elsewhere.
+        """
+        try:
+            return (
+                self.coordinator.data["host"]["components"]["0"]["boost"]["mode"] == "on"
+            )
+        except (KeyError, TypeError):
+            return None
 
     async def async_turn_on(self, **kwargs) -> None:
         # Record intent before sending — the coordinator uses this for recovery.
