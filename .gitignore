@@ -15,14 +15,5 @@ __pycache__/
 # Local settings
 .secrets.yaml
 
-# Internal development notes
-Objectives and definitions.md
-CLAUDE.md
-SESSION_NOTES.md
-
 # Logs
-debug.log
 *.log
-
-# Claude Code agent memory
-memory/
